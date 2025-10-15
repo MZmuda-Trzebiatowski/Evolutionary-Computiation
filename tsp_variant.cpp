@@ -55,7 +55,7 @@ vector<vector<int>> compute_distance_matrix(const vector<Node> &nodes) {
             double dx = nodes[i].x - nodes[j].x;
             double dy = nodes[i].y - nodes[j].y;
             double eu = sqrt(dx*dx + dy*dy);
-            d[i][j] = (int)lround(eu);
+            d[i][j] = round(eu);
         }
     }
     return d;
@@ -86,6 +86,53 @@ vector<int> random_solution(int n, int k) {
     return ids;
 }
 
+long long get_increase(const vector<Node> &nodes, const vector<vector<int>> &d, int node1_id, int node2_id) {
+    long long distance_and_cost = 0;
+    distance_and_cost += d[node1_id][node2_id];
+    distance_and_cost += nodes[node2_id].cost;
+
+    return distance_and_cost;
+}
+
+
+vector<int> nn_end(int n, const vector<Node> &nodes, const vector<vector<int>> &d, int starting_node_id) {
+    int filled_nodes = 0;
+    vector<int> tour(n, -1);
+
+    std::vector<int> remining_nodes(n);
+    for (int i = 0; i < n; ++i) {
+        remining_nodes[i] = i;
+    }
+
+    int end_node_id = starting_node_id;
+    tour[filled_nodes] = starting_node_id;
+    filled_nodes += 1;
+    remining_nodes.erase(std::remove(remining_nodes.begin(), remining_nodes.end(), starting_node_id), remining_nodes.end());
+    
+
+    for(; filled_nodes < n; filled_nodes++) {
+        int best_next = remining_nodes.front();
+        long long min_next = get_increase(nodes, d, end_node_id, best_next);
+        remining_nodes.erase(std::remove(remining_nodes.begin(), remining_nodes.end(), best_next), remining_nodes.end());
+
+        for(int next_node: remining_nodes) {
+            long long next_node_increase = get_increase(nodes, d, end_node_id, next_node);
+            if (next_node_increase < min_next)
+            {
+                min_next = next_node_increase;
+                best_next = next_node;
+            }
+            
+        }
+
+        tour[filled_nodes] = best_next;
+        end_node_id = best_next;
+        remining_nodes.erase(std::remove(remining_nodes.begin(), remining_nodes.end(), best_next), remining_nodes.end());
+    }
+
+    return tour;
+}
+
 
 void export_tour_svg(const string& filename, const vector<int>& tour, const vector<Node>& nodes) {
     if (tour.empty()) {
@@ -108,8 +155,8 @@ void export_tour_svg(const string& filename, const vector<int>& tour, const vect
     }
 
     // 2. Define SVG canvas parameters
-    const int SVG_WIDTH = 800;
-    const int SVG_HEIGHT = 600;
+    const int SVG_WIDTH = 1920;
+    const int SVG_HEIGHT = 1080;
     const int PADDING = 40; // Space from the edge
 
     double scale_x = (double)(SVG_WIDTH - 2 * PADDING) / (max_x - min_x + 1);
@@ -245,6 +292,23 @@ int main(int argc, char** argv) {
     }
     cout<<"Random: best objective = "<<best_random_obj<<"\n";
     export_tour_svg("best_random_tour.svg", best_random_tour, nodes);
+
+
+    long long best_nn_end_obj = LLONG_MAX/4;
+    vector<int> best_nn_end_tour;
+
+    // Generate N_SOL nn_end solutions and keep the best
+    for(int t=0;t<N_SOL;t++){
+        auto tour = nn_end(n, nodes, d, t);
+        long long obj = tour_objective(tour, d, nodes);
+        if(obj < best_nn_end_obj){
+            best_nn_end_obj = obj;
+            best_nn_end_tour = tour;
+        }
+    }
+    cout<<"NN_end: best objective = "<<best_nn_end_obj<<"\n";
+    export_tour_svg("best_end_nn_tour.svg", best_nn_end_tour, nodes);
+
 
     return 0;
 }
