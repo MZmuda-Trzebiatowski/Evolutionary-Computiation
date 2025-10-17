@@ -99,8 +99,8 @@ vector<int> nn_end(int n, const vector<Node> &nodes, const vector<vector<int>> &
     int filled_nodes = 0;
     vector<int> tour(n, -1);
 
-    std::vector<int> remining_nodes(n);
-    for (int i = 0; i < n; ++i) {
+    std::vector<int> remining_nodes(200);
+    for (int i = 0; i < 200; ++i) {
         remining_nodes[i] = i;
     }
 
@@ -113,8 +113,6 @@ vector<int> nn_end(int n, const vector<Node> &nodes, const vector<vector<int>> &
     for(; filled_nodes < n; filled_nodes++) {
         int best_next = remining_nodes.front();
         long long min_next = get_increase(nodes, d, end_node_id, best_next);
-        remining_nodes.erase(std::remove(remining_nodes.begin(), remining_nodes.end(), best_next), remining_nodes.end());
-
         for(int next_node: remining_nodes) {
             long long next_node_increase = get_increase(nodes, d, end_node_id, next_node);
             if (next_node_increase < min_next)
@@ -124,7 +122,6 @@ vector<int> nn_end(int n, const vector<Node> &nodes, const vector<vector<int>> &
             }
             
         }
-
         tour[filled_nodes] = best_next;
         end_node_id = best_next;
         remining_nodes.erase(std::remove(remining_nodes.begin(), remining_nodes.end(), best_next), remining_nodes.end());
@@ -299,7 +296,7 @@ int main(int argc, char** argv) {
 
     // Generate N_SOL nn_end solutions and keep the best
     for(int t=0;t<N_SOL;t++){
-        auto tour = nn_end(n, nodes, d, t);
+        auto tour = nn_end(k, nodes, d, t);
         long long obj = tour_objective(tour, d, nodes);
         if(obj < best_nn_end_obj){
             best_nn_end_obj = obj;
