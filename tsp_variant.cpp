@@ -133,7 +133,6 @@ vector<int> nn_anypos(int start_node, int k, const vector<vector<int>>& d, const
         }
     }
 
-    if (second == -1) return cycle;
     cycle.push_back(second);
     used[second] = true;
 
@@ -369,7 +368,7 @@ void export_tour_svg(const string& filename, const vector<int>& tour, const vect
 }
 
 
-void print_stats(const string& heuristic_name, const vector<long long>& objectives, long long best_obj) {
+void print_stats(const string& heuristic_name, const vector<long long>& objectives) {
     if (objectives.empty()) {
         cerr << "Error: No objectives recorded for " << heuristic_name << ".\n";
         return;
@@ -381,11 +380,10 @@ void print_stats(const string& heuristic_name, const vector<long long>& objectiv
     long double sum_obj = accumulate(objectives.begin(), objectives.end(), (long double)0.0);
     long double avg_obj = sum_obj / objectives.size();
 
-    cout << "\n--- " << heuristic_name << " Stats (" << objectives.size() << " Runs) ---\n";
+    cout << "\n " << heuristic_name << " Stats\n";
     cout << "  Min Objective: " << min_obj << "\n";
     cout << "  Max Objective: " << max_obj << "\n";
     cout << "  Avg Objective: " << avg_obj << "\n";
-    cout << "  Best Objective found: " << best_obj << "\n";
     cout << "------------------------------------------\n";
 }
 
@@ -441,7 +439,7 @@ int main(int argc, char** argv) {
             best_random_tour = tour;
         }
     }
-    print_stats("Random Solution", random_objectives, best_random_obj);
+    print_stats("Random Solution", random_objectives);
     export_tour_svg("best_random_tour.svg", best_random_tour, nodes);
     export_tour_txt("best_random_tour.txt", best_random_tour);
 
@@ -462,7 +460,7 @@ int main(int argc, char** argv) {
             best_nn_end_tour = tour;
         }
     }
-    print_stats("Nearest Neighbor (End)", nn_end_objectives, best_nn_end_obj);
+    print_stats("Nearest Neighbor (End)", nn_end_objectives);
     export_tour_svg("best_end_nn_tour.svg", best_nn_end_tour, nodes);
     export_tour_txt("best_end_nn_tour.txt", best_nn_end_tour);
 
@@ -483,7 +481,7 @@ int main(int argc, char** argv) {
             best_nn_any_tour = tour;
         }
     }
-    print_stats("Nearest Neighbor (Any Position)", nn_anypos_objectives, best_nn_any_obj);
+    print_stats("Nearest Neighbor (Any Position)", nn_anypos_objectives);
     export_tour_svg("best_anypos_nn_tour.svg", best_nn_any_tour, nodes);
     export_tour_txt("best_anypos_nn_tour.txt", best_nn_any_tour);
 
@@ -504,7 +502,7 @@ int main(int argc, char** argv) {
             best_greedy_tour = tour;
         }
     }
-    print_stats("Greedy Cycle", greedy_cycle_objectives, best_greedy_obj);
+    print_stats("Greedy Cycle", greedy_cycle_objectives);
     export_tour_svg("best_greedy_cycle_tour.svg", best_greedy_tour, nodes);
     export_tour_txt("best_greedy_cycle_tour.txt", best_greedy_tour);
 
