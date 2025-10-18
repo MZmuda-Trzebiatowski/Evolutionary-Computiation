@@ -113,35 +113,132 @@ vector<int> nn_end(int start_node, int k, const vector<vector<int>>& d, const ve
 }
 
 
-// NN with any-position insertion
 vector<int> nn_anypos(int start_node, int k, const vector<vector<int>>& d, const vector<Node>& nodes) {
     int n = d.size();
-    vector<char> used(n,false);
+    vector<char> used(n, false);
     vector<int> cycle;
+    cycle.reserve(k);
+
     cycle.push_back(start_node);
-    used[start_node]=true;
-    while((int)cycle.size() < k) {
-        int best_node = -1;
-        int best_pos = -1; 
-        long long best_delta = LLONG_MAX/4;
-        int m = cycle.size();
-        for(int cand=0;cand<n;cand++){
-            if(used[cand]) continue;
-            for(int pos=0; pos<m; pos++){
-                int a = cycle[pos];
-                int b = cycle[(pos+1)%m];
-                long long delta = (long long)d[a][cand] + d[cand][b] - d[a][b] + nodes[cand].cost;
-                if(delta < best_delta){
-                    best_delta = delta;
-                    best_node = cand;
-                    best_pos = pos;
+    used[start_node] = true;
+
+    int second = -1;
+    long long best = LLONG_MAX;
+    for (int cand = 0; cand < n; ++cand) {
+        if (used[cand]) continue;
+        long long val = (long long)d[start_node][cand] + nodes[cand].cost;
+        if (val < best) {
+            best = val;
+            second = cand;
+        }
+    }
+
+    if (second == -1) return cycle;
+    cycle.push_back(second);
+    used[second] = true;
+
+    while ((int)cycle.size() < k) {
+        int next_node = -1;
+        long long best_nn = LLONG_MAX;
+        for (int cand = 0; cand < n; ++cand) {
+            if (used[cand]) continue;
+            for (int v : cycle) {
+                long long val = (long long)d[v][cand] + nodes[cand].cost;
+                if (val < best_nn) {
+                    best_nn = val;
+                    next_node = cand;
                 }
             }
         }
-        if(best_node==-1) break;
-        cycle.insert(cycle.begin() + best_pos + 1, best_node);
-        used[best_node]=true;
+
+        if (next_node == -1) break;
+
+        int m = cycle.size();
+        int best_pos = 0;
+        long long best_increase = LLONG_MAX;
+        for (int i = 0; i < m; ++i) {
+            int a = cycle[i];
+            int b = cycle[(i + 1) % m];
+            long long delta = (long long)d[a][next_node] + d[next_node][b] - d[a][b];
+            if (delta < best_increase) {
+                best_increase = delta;
+                best_pos = i + 1;
+            }
+        }
+
+        cycle.insert(cycle.begin() + best_pos, next_node);
+        used[next_node] = true;
     }
+
+    return cycle;
+}
+
+
+
+// Greedy cycle construction
+vector<int> greedy_cycle(int start_node, int k, const vector<vector<int>> &d, const vector<Node> &nodes)
+{
+    int n = d.size();
+    vector<char> used(n, false);
+    vector<int> cycle;
+    cycle.reserve(k);
+
+    cycle.push_back(start_node);
+    used[start_node] = true;
+
+    int best_second = -1;
+    long long best_delta = LLONG_MAX / 4;
+
+    // add second node to form first edge
+    for (int cand = 0; cand < n; ++cand)
+    {
+        if (used[cand])
+            continue;
+        long long delta = (long long)d[start_node][cand] * 2 + nodes[cand].cost;
+        if (delta < best_delta)
+        {
+            best_delta = delta;
+            best_second = cand;
+        }
+    }
+
+    cycle.push_back(best_second);
+    used[best_second] = true;
+
+    while ((int)cycle.size() < k)
+    {
+        long long best_increase = LLONG_MAX / 4;
+        int best_node = -1;
+        int best_pos = -1;
+
+        int m = cycle.size();
+        for (int cand = 0; cand < n; ++cand)
+        {
+            if (used[cand])
+                continue;
+
+            for (int i = 0; i < m; ++i)
+            {
+                int a = cycle[i];
+                int b = cycle[(i + 1) % m]; // wrap for closed cycle
+
+                long long delta = (long long)d[a][cand] + d[cand][b] - d[a][b] + nodes[cand].cost;
+                if (delta < best_increase)
+                {
+                    best_increase = delta;
+                    best_node = cand;
+                    best_pos = i + 1;
+                }
+            }
+        }
+
+        if (best_node == -1)
+            break;
+
+        cycle.insert(cycle.begin() + best_pos, best_node);
+        used[best_node] = true;
+    }
+
     return cycle;
 }
 
@@ -272,6 +369,45 @@ void export_tour_svg(const string& filename, const vector<int>& tour, const vect
 }
 
 
+void print_stats(const string& heuristic_name, const vector<long long>& objectives, long long best_obj) {
+    if (objectives.empty()) {
+        cerr << "Error: No objectives recorded for " << heuristic_name << ".\n";
+        return;
+    }
+
+    long long min_obj = *min_element(objectives.begin(), objectives.end());
+    long long max_obj = *max_element(objectives.begin(), objectives.end());
+
+    long double sum_obj = accumulate(objectives.begin(), objectives.end(), (long double)0.0);
+    long double avg_obj = sum_obj / objectives.size();
+
+    cout << "\n--- " << heuristic_name << " Stats (" << objectives.size() << " Runs) ---\n";
+    cout << "  Min Objective: " << min_obj << "\n";
+    cout << "  Max Objective: " << max_obj << "\n";
+    cout << "  Avg Objective: " << avg_obj << "\n";
+    cout << "  Best Objective found: " << best_obj << "\n";
+    cout << "------------------------------------------\n";
+}
+
+
+void export_tour_txt(const string& filename, const vector<int>& tour) {
+    ofstream outfile(filename);
+    if (outfile.is_open()) {
+        for (size_t i = 0; i < tour.size(); ++i) {
+            outfile << tour[i];
+            if (i < tour.size() - 1) {
+                outfile << ",";
+            }
+        }
+        outfile << "\n";
+        outfile.close();
+        cout << "  > Exported best tour indices to " << filename << " (TXT file).\n";
+    } else {
+        cerr << "  > ERROR: Unable to open file " << filename << " for writing.\n";
+    }
+}
+
+
 int main(int argc, char** argv) {
     if(argc < 2) {
         cerr << "Usage: " << argv[0] << " <instance-file>\n";
@@ -289,55 +425,88 @@ int main(int argc, char** argv) {
 
     const int N_SOL = 200;
 
+    // 1. Random Solutions
     long long best_random_obj = LLONG_MAX/4;
     vector<int> best_random_tour;
-
+    vector<long long> random_objectives;
 
     // Generate N_SOL random solutions and keep the best
     for(int t=0;t<N_SOL;t++){
         auto tour = random_solution(n, k);
         long long obj = tour_objective(tour, d, nodes);
+        random_objectives.push_back(obj);
+
         if(obj < best_random_obj){
             best_random_obj = obj;
             best_random_tour = tour;
         }
     }
-    cout<<"Random: best objective = "<<best_random_obj<<"\n";
+    print_stats("Random Solution", random_objectives, best_random_obj);
     export_tour_svg("best_random_tour.svg", best_random_tour, nodes);
+    export_tour_txt("best_random_tour.txt", best_random_tour);
 
-
+    // 2. NN End Solutions
     long long best_nn_end_obj = LLONG_MAX/4;
     vector<int> best_nn_end_tour;
+    vector<long long> nn_end_objectives;
 
     // Generate N_SOL nn_end solutions and keep the best
     for(int t=0;t<N_SOL;t++){
         int start = t % n;
         auto tour = nn_end(start, k, d, nodes);
         long long obj = tour_objective(tour, d, nodes);
+        nn_end_objectives.push_back(obj);
+
         if(obj < best_nn_end_obj){
             best_nn_end_obj = obj;
             best_nn_end_tour = tour;
         }
     }
-    cout<<"NN_end: best objective = "<<best_nn_end_obj<<"\n";
+    print_stats("Nearest Neighbor (End)", nn_end_objectives, best_nn_end_obj);
     export_tour_svg("best_end_nn_tour.svg", best_nn_end_tour, nodes);
+    export_tour_txt("best_end_nn_tour.txt", best_nn_end_tour);
 
-
+    // 3. NN Any Position Solutions
     long long best_nn_any_obj = LLONG_MAX/4;
     vector<int> best_nn_any_tour;
+    vector<long long> nn_anypos_objectives;
 
     // Generate N_SOL NN any-position and keep the best
     for(int t=0;t<N_SOL;t++){
         int start = t % n;
         auto tour = nn_anypos(start, k, d, nodes);
         long long obj = tour_objective(tour, d, nodes);
+        nn_anypos_objectives.push_back(obj);
+
         if(obj < best_nn_any_obj){
             best_nn_any_obj = obj;
             best_nn_any_tour = tour;
         }
     }
-    cout<<"NN_any_position: best objective = "<<best_nn_any_obj<<"\n";
+    print_stats("Nearest Neighbor (Any Position)", nn_anypos_objectives, best_nn_any_obj);
     export_tour_svg("best_anypos_nn_tour.svg", best_nn_any_tour, nodes);
+    export_tour_txt("best_anypos_nn_tour.txt", best_nn_any_tour);
+
+    // 4. Greedy Cycle Solutions
+    long long best_greedy_obj = LLONG_MAX/4;
+    vector<int> best_greedy_tour;
+    vector<long long> greedy_cycle_objectives;
+
+    // Generate N_SOL Greedy cycle solutions and keep the best
+    for(int t=0;t<N_SOL;t++){
+        int start = t % n;
+        auto tour = greedy_cycle(start, k, d, nodes);
+        long long obj = tour_objective(tour, d, nodes);
+        greedy_cycle_objectives.push_back(obj);
+
+        if(obj < best_greedy_obj){
+            best_greedy_obj = obj;
+            best_greedy_tour = tour;
+        }
+    }
+    print_stats("Greedy Cycle", greedy_cycle_objectives, best_greedy_obj);
+    export_tour_svg("best_greedy_cycle_tour.svg", best_greedy_tour, nodes);
+    export_tour_txt("best_greedy_cycle_tour.txt", best_greedy_tour);
 
     return 0;
 }
