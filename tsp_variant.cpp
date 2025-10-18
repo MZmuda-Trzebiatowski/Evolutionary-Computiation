@@ -96,13 +96,13 @@ vector<int> nn_end(int start_node, int k, const vector<vector<int>>& d, const ve
     used[start_node] = true;
     while((int)cycle.size() < k) {
         int best_node = -1;
-        long long best_delta = LLONG_MAX/4;
+        long long best_delta = LLONG_MAX;
         int iidx = cycle.back();
         int jidx = cycle.front();
         int base_edge = d[iidx][jidx];
         for(int cand=0;cand<n;cand++){
             if(used[cand]) continue;
-            long long delta = (long long)d[iidx][cand] + d[cand][jidx] - base_edge + nodes[cand].cost;
+            long long delta = (long long)d[iidx][cand] + d[cand][jidx] + nodes[cand].cost;
             if(delta < best_delta) { best_delta = delta; best_node = cand; }
         }
         if(best_node==-1) break; 
@@ -186,7 +186,7 @@ vector<int> greedy_cycle(int start_node, int k, const vector<vector<int>> &d, co
     used[start_node] = true;
 
     int best_second = -1;
-    long long best_delta = LLONG_MAX / 4;
+    long long best_delta = LLONG_MAX;
 
     // add second node to form first edge
     for (int cand = 0; cand < n; ++cand)
@@ -206,7 +206,7 @@ vector<int> greedy_cycle(int start_node, int k, const vector<vector<int>> &d, co
 
     while ((int)cycle.size() < k)
     {
-        long long best_increase = LLONG_MAX / 4;
+        long long best_increase = LLONG_MAX;
         int best_node = -1;
         int best_pos = -1;
 
@@ -424,7 +424,7 @@ int main(int argc, char** argv) {
     const int N_SOL = 200;
 
     // 1. Random Solutions
-    long long best_random_obj = LLONG_MAX/4;
+    long long best_random_obj = LLONG_MAX;
     vector<int> best_random_tour;
     vector<long long> random_objectives;
 
@@ -444,7 +444,7 @@ int main(int argc, char** argv) {
     export_tour_txt("best_random_tour.txt", best_random_tour);
 
     // 2. NN End Solutions
-    long long best_nn_end_obj = LLONG_MAX/4;
+    long long best_nn_end_obj = LLONG_MAX;
     vector<int> best_nn_end_tour;
     vector<long long> nn_end_objectives;
 
@@ -465,7 +465,7 @@ int main(int argc, char** argv) {
     export_tour_txt("best_end_nn_tour.txt", best_nn_end_tour);
 
     // 3. NN Any Position Solutions
-    long long best_nn_any_obj = LLONG_MAX/4;
+    long long best_nn_any_obj = LLONG_MAX;
     vector<int> best_nn_any_tour;
     vector<long long> nn_anypos_objectives;
 
@@ -486,7 +486,7 @@ int main(int argc, char** argv) {
     export_tour_txt("best_anypos_nn_tour.txt", best_nn_any_tour);
 
     // 4. Greedy Cycle Solutions
-    long long best_greedy_obj = LLONG_MAX/4;
+    long long best_greedy_obj = LLONG_MAX;
     vector<int> best_greedy_tour;
     vector<long long> greedy_cycle_objectives;
 
