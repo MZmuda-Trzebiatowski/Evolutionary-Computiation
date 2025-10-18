@@ -87,120 +87,62 @@ vector<int> random_solution(int n, int k) {
 }
 
 
-long long get_increase(const vector<Node> &nodes, const vector<vector<int>> &d, int node1_id, int node2_id) {
-    long long distance_and_cost = 0;
-    distance_and_cost += d[node1_id][node2_id];
-    distance_and_cost += nodes[node2_id].cost;
-
-    return distance_and_cost;
-}
-
-
-vector<int> nn_end(int n, const vector<Node> &nodes, const vector<vector<int>> &d, int starting_node_id) {
-    int filled_nodes = 0;
-    vector<int> tour(n, -1);
-
-    std::vector<int> remining_nodes(200);
-    for (int i = 0; i < 200; ++i) {
-        remining_nodes[i] = i;
-    }
-
-    int end_node_id = starting_node_id;
-    tour[filled_nodes] = starting_node_id;
-    filled_nodes += 1;
-    remining_nodes.erase(remove(remining_nodes.begin(), remining_nodes.end(), starting_node_id), remining_nodes.end());
-    
-
-    for(; filled_nodes < n; filled_nodes++) {
-        int best_next = remining_nodes.front();
-        long long min_next = get_increase(nodes, d, end_node_id, best_next);
-        for(int next_node: remining_nodes) {
-            long long next_node_increase = get_increase(nodes, d, end_node_id, next_node);
-            if (next_node_increase < min_next)
-            {
-                min_next = next_node_increase;
-                best_next = next_node;
-            }
-            
-        }
-        tour[filled_nodes] = best_next;
-        end_node_id = best_next;
-        remining_nodes.erase(remove(remining_nodes.begin(), remining_nodes.end(), best_next), remining_nodes.end());
-    }
-
-    return tour;
-}
-
-
-long long get_increase_anypos(const vector<Node> &nodes, const vector<vector<int>> &d,
-                              int a, int b, int new_node_id) {
-    long long delta = 0;
-    delta += d[a][new_node_id] + d[new_node_id][b] - d[a][b];
-    delta += nodes[new_node_id].cost;
-    return delta;
-}
-
-
-vector<int> nn_any_position(int n, const vector<Node> &nodes, const vector<vector<int>> &d,
-                            int starting_node_id) {
-    int filled_nodes = 0;
-    vector<int> tour;
-    tour.reserve(n);
-
-    vector<int> remaining_nodes(n);
-    iota(remaining_nodes.begin(), remaining_nodes.end(), 0);
-
-    tour.push_back(starting_node_id);
-    filled_nodes = 1;
-    remaining_nodes.erase(remove(remaining_nodes.begin(), remaining_nodes.end(), starting_node_id),
-                          remaining_nodes.end());
-
-
-    if (!remaining_nodes.empty()) {
-        int best_next = remaining_nodes.front();
-        long long min_next = get_increase(nodes, d, starting_node_id, best_next);
-        for (int next_node : remaining_nodes) {
-            long long next_node_increase = get_increase(nodes, d, starting_node_id, next_node);
-            if (next_node_increase < min_next) {
-                min_next = next_node_increase;
-                best_next = next_node;
-            }
-        }
-        tour.push_back(best_next);
-        filled_nodes++;
-        remaining_nodes.erase(remove(remaining_nodes.begin(), remaining_nodes.end(), best_next),
-                              remaining_nodes.end());
-    }
-
-    while ((int)tour.size() < n && !remaining_nodes.empty()) {
-        long long best_increase = LLONG_MAX;
+// NN with end-only insertion
+vector<int> nn_end(int start_node, int k, const vector<vector<int>>& d, const vector<Node>& nodes) {
+    int n = d.size();
+    vector<char> used(n, false);
+    vector<int> cycle;
+    cycle.push_back(start_node);
+    used[start_node] = true;
+    while((int)cycle.size() < k) {
         int best_node = -1;
-        int best_pos = -1;
+        long long best_delta = LLONG_MAX/4;
+        int iidx = cycle.back();
+        int jidx = cycle.front();
+        int base_edge = d[iidx][jidx];
+        for(int cand=0;cand<n;cand++){
+            if(used[cand]) continue;
+            long long delta = (long long)d[iidx][cand] + d[cand][jidx] - base_edge + nodes[cand].cost;
+            if(delta < best_delta) { best_delta = delta; best_node = cand; }
+        }
+        if(best_node==-1) break; 
+        cycle.push_back(best_node);
+        used[best_node]=true;
+    }
+    return cycle;
+}
 
-        int m = tour.size();
-        for (int candidate : remaining_nodes) {
-            for (int i = 0; i < m; ++i) {
-                int a = tour[i];
-                int b = tour[(i + 1) % m];  // wrap to make it a cycle
-                long long increase = get_increase_anypos(nodes, d, a, b, candidate);
-                if (increase < best_increase) {
-                    best_increase = increase;
-                    best_node = candidate;
-                    best_pos = i + 1; // insert after position i
+
+// NN with any-position insertion
+vector<int> nn_anypos(int start_node, int k, const vector<vector<int>>& d, const vector<Node>& nodes) {
+    int n = d.size();
+    vector<char> used(n,false);
+    vector<int> cycle;
+    cycle.push_back(start_node);
+    used[start_node]=true;
+    while((int)cycle.size() < k) {
+        int best_node = -1;
+        int best_pos = -1; 
+        long long best_delta = LLONG_MAX/4;
+        int m = cycle.size();
+        for(int cand=0;cand<n;cand++){
+            if(used[cand]) continue;
+            for(int pos=0; pos<m; pos++){
+                int a = cycle[pos];
+                int b = cycle[(pos+1)%m];
+                long long delta = (long long)d[a][cand] + d[cand][b] - d[a][b] + nodes[cand].cost;
+                if(delta < best_delta){
+                    best_delta = delta;
+                    best_node = cand;
+                    best_pos = pos;
                 }
             }
         }
-
-        if (best_node != -1) {
-            tour.insert(tour.begin() + best_pos, best_node);
-            remaining_nodes.erase(remove(remaining_nodes.begin(), remaining_nodes.end(), best_node),
-                                  remaining_nodes.end());
-        } else {
-            break; 
-        }
+        if(best_node==-1) break;
+        cycle.insert(cycle.begin() + best_pos + 1, best_node);
+        used[best_node]=true;
     }
-
-    return tour;
+    return cycle;
 }
 
 
@@ -326,7 +268,7 @@ void export_tour_svg(const string& filename, const vector<int>& tour, const vect
     out << "</svg>\n";
     out.close();
 
-    cout << "SVG visualization saved to: " << filename << "\n";
+    // cout << "SVG visualization saved to: " << filename << "\n";
 }
 
 
@@ -369,7 +311,8 @@ int main(int argc, char** argv) {
 
     // Generate N_SOL nn_end solutions and keep the best
     for(int t=0;t<N_SOL;t++){
-        auto tour = nn_end(k, nodes, d, t);
+        int start = t % n;
+        auto tour = nn_end(start, k, d, nodes);
         long long obj = tour_objective(tour, d, nodes);
         if(obj < best_nn_end_obj){
             best_nn_end_obj = obj;
@@ -384,17 +327,16 @@ int main(int argc, char** argv) {
     vector<int> best_nn_any_tour;
 
     // Generate N_SOL NN any-position and keep the best
-
     for(int t=0;t<N_SOL;t++){
         int start = t % n;
-        auto tour = nn_any_position(k, nodes, d, start);
+        auto tour = nn_anypos(start, k, d, nodes);
         long long obj = tour_objective(tour, d, nodes);
         if(obj < best_nn_any_obj){
             best_nn_any_obj = obj;
             best_nn_any_tour = tour;
         }
     }
-    cout<<" NN_any_position: best objective = "<<best_nn_any_obj<<"\n";
+    cout<<"NN_any_position: best objective = "<<best_nn_any_obj<<"\n";
     export_tour_svg("best_anypos_nn_tour.svg", best_nn_any_tour, nodes);
 
     return 0;
