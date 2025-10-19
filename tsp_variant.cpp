@@ -650,7 +650,7 @@ void export_tour_txt(const string &filename, const vector<int> &tour)
             outfile << tour[i];
             if (i < tour.size() - 1)
             {
-                outfile << "\n";
+                outfile << ", ";
             }
         }
         outfile << "\n";
