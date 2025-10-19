@@ -92,17 +92,17 @@ vector<int> nn_end(int start_node, int k, const vector<vector<int>>& d, const ve
     int n = d.size();
     vector<char> used(n, false);
     vector<int> cycle;
+    cycle.reserve(k);
     cycle.push_back(start_node);
     used[start_node] = true;
     while((int)cycle.size() < k) {
         int best_node = -1;
         long long best_delta = LLONG_MAX;
         int iidx = cycle.back();
-        int jidx = cycle.front();
-        int base_edge = d[iidx][jidx];
-        for(int cand=0;cand<n;cand++){
+
+        for(int cand=0; cand<n; cand++){
             if(used[cand]) continue;
-            long long delta = (long long)d[iidx][cand] + d[cand][jidx] + nodes[cand].cost;
+            long long delta = (long long)d[iidx][cand] + nodes[cand].cost;
             if(delta < best_delta) { best_delta = delta; best_node = cand; }
         }
         if(best_node==-1) break; 
@@ -122,50 +122,63 @@ vector<int> nn_anypos(int start_node, int k, const vector<vector<int>>& d, const
     cycle.push_back(start_node);
     used[start_node] = true;
 
-    int second = -1;
-    long long best = LLONG_MAX;
-    for (int cand = 0; cand < n; ++cand) {
-        if (used[cand]) continue;
-        long long val = (long long)d[start_node][cand] + nodes[cand].cost;
-        if (val < best) {
-            best = val;
-            second = cand;
-        }
-    }
 
-    cycle.push_back(second);
-    used[second] = true;
-
-    while ((int)cycle.size() < k) {
+    while ((int)cycle.size() < k)
+    {
+        int best_put_after_index = -1;
         int next_node = -1;
-        long long best_nn = LLONG_MAX;
-        for (int cand = 0; cand < n; ++cand) {
-            if (used[cand]) continue;
-            for (int v : cycle) {
-                long long val = (long long)d[v][cand] + nodes[cand].cost;
-                if (val < best_nn) {
-                    best_nn = val;
+        long long best_at_start_val = LLONG_MAX;
+
+        // check for inserting at start
+        for (int cand = 0; cand < n; cand++)
+            {
+                if (used[cand]) continue;
+                long long val = (long long)d[cand][cycle[0]] + nodes[cand].cost;               
+
+                if (val < best_at_start_val)
+                {
+                    best_at_start_val = val;
                     next_node = cand;
                 }
             }
-        }
 
-        if (next_node == -1) break;
+        long long best_nn = best_at_start_val;
+        
 
-        int m = cycle.size();
-        int best_pos = 0;
-        long long best_increase = LLONG_MAX;
-        for (int i = 0; i < m; ++i) {
-            int a = cycle[i];
-            int b = cycle[(i + 1) % m];
-            long long delta = (long long)d[a][next_node] + d[next_node][b] - d[a][b];
-            if (delta < best_increase) {
-                best_increase = delta;
-                best_pos = i + 1;
+        int c_size = (int)cycle.size();
+        for (int i = 0; i < c_size; i++)
+        {
+            int best_next_node_locally = -1;
+            long long bnnl_min = LLONG_MAX;
+            int put_after = cycle[i];
+            int put_before = cycle[(i + 1) % c_size];
+
+            for (int cand = 0; cand < n; cand++)
+            {
+                if (used[cand]) continue;
+                long long val = (long long)d[put_after][cand] + nodes[cand].cost + d[cand][put_before];
+                if (i < ((i + 1) % c_size))
+                {
+                    val -= d[put_after][put_before];
+                }
+                
+
+                if (val < bnnl_min)
+                {
+                    bnnl_min = val;
+                    best_next_node_locally = cand;
+                }
+            }
+
+            if (bnnl_min < best_nn)
+            {
+                best_nn = bnnl_min;
+                next_node = best_next_node_locally;
+                best_put_after_index = i;
             }
         }
-
-        cycle.insert(cycle.begin() + best_pos, next_node);
+        
+        cycle.insert(cycle.begin() + best_put_after_index + 1, next_node);
         used[next_node] = true;
     }
 
@@ -189,11 +202,11 @@ vector<int> greedy_cycle(int start_node, int k, const vector<vector<int>> &d, co
     long long best_delta = LLONG_MAX;
 
     // add second node to form first edge
-    for (int cand = 0; cand < n; ++cand)
+    for (int cand = 0; cand < n; cand++)
     {
         if (used[cand])
             continue;
-        long long delta = (long long)d[start_node][cand] * 2 + nodes[cand].cost;
+        long long delta = (long long)d[start_node][cand] + nodes[cand].cost;
         if (delta < best_delta)
         {
             best_delta = delta;
@@ -206,40 +219,237 @@ vector<int> greedy_cycle(int start_node, int k, const vector<vector<int>> &d, co
 
     while ((int)cycle.size() < k)
     {
-        long long best_increase = LLONG_MAX;
-        int best_node = -1;
-        int best_pos = -1;
-
-        int m = cycle.size();
-        for (int cand = 0; cand < n; ++cand)
+        int best_put_after_index = 0;
+        int next_node = -1;
+        long long best_nn = LLONG_MAX;
+        int c_size = (int)cycle.size();
+        for (int i = 0; i < c_size; i++)
         {
-            if (used[cand])
-                continue;
+            int best_next_node_locally = -1;
+            long long  bnnl_min = LLONG_MAX;
+            int put_after = cycle[i];
+            int put_before = cycle[(i + 1) % c_size];
 
-            for (int i = 0; i < m; ++i)
+            for (int cand = 0; cand < n; cand++)
             {
-                int a = cycle[i];
-                int b = cycle[(i + 1) % m]; // wrap for closed cycle
-
-                long long delta = (long long)d[a][cand] + d[cand][b] - d[a][b] + nodes[cand].cost;
-                if (delta < best_increase)
+                if (used[cand]) continue;
+                long long val = (long long)d[put_after][cand] + nodes[cand].cost + d[cand][put_before];      
+                if (c_size > 2)
                 {
-                    best_increase = delta;
-                    best_node = cand;
-                    best_pos = i + 1;
+                    val -= d[put_after][put_before];
+                }       
+
+                if (val < bnnl_min)
+                {
+                    bnnl_min = val;
+                    best_next_node_locally = cand;
                 }
+            }
+
+            if (bnnl_min < best_nn)
+            {
+                best_nn = bnnl_min;
+                next_node = best_next_node_locally;
+                best_put_after_index = i;
             }
         }
 
-        if (best_node == -1)
-            break;
+        cycle.insert(cycle.begin() + best_put_after_index + 1, next_node);
+        used[next_node] = true;
+    }
 
+    return cycle;
+}
+
+vector<int> nn_anypos_regret(int start_node, int k, const vector<vector<int>>& d, const vector<Node>& nodes, double w1, double w2) {
+    struct RegretRankingEntry {
+            int node;
+            int first_pos;
+            long long first_val;
+            int second_pos;
+            long long second_val;
+        };
+
+    int n = d.size();
+    vector<char> used(n, false);
+    vector<int> cycle;
+    cycle.reserve(k);
+
+    cycle.push_back(start_node);
+    used[start_node] = true;
+
+
+    while ((int)cycle.size() < k)
+    {
+        
+        vector<RegretRankingEntry> ranking;
+
+        for (int i = 0; i < n; i++)
+        {
+            if (used[i]) continue;
+            
+            int best_first_pos = 0;
+            long long best_first_val = (long long)d[i][cycle[0]] + nodes[i].cost;
+            int best_second_pos = 0;
+            long long best_second_val = LLONG_MAX;
+
+            int c_size = (int)cycle.size();
+            for (int pos = 1; pos < c_size; pos++) {
+                long long val = (long long)d[cycle[pos - 1]][i] + d[cycle[pos]][i] - d[cycle[pos - 1]][cycle[pos]] + nodes[i].cost;
+
+                if (val < best_first_val)
+                {
+                    best_second_val = best_first_val;
+                    best_second_pos = best_first_pos;
+                    best_first_val = val;
+                    best_first_pos = pos;
+                } else if (val < best_second_val)
+                {
+                    best_second_val = val;
+                    best_second_pos = pos;
+                }
+            }
+
+            long long end_val = d[cycle[c_size - 1]][i] + nodes[i].cost;
+            if (end_val < best_first_val)
+                {
+                    best_second_val = best_first_val;
+                    best_second_pos = best_first_pos;
+                    best_first_val = end_val;
+                    best_first_pos = c_size;
+                } else if (end_val < best_second_val)
+                {
+                    best_second_val = end_val;
+                    best_second_pos = c_size;
+                }
+
+            ranking.push_back({i, best_first_pos, best_first_val, best_second_pos, best_second_val});
+        }
+
+        double best_score = -__DBL_MAX__;
+        int best_node = 0;
+        int best_pos = 0;
+
+        for(RegretRankingEntry entry: ranking) {
+            double score = w1 * (double)(entry.second_val - entry.first_val) - w2 * (double)entry.first_val;
+            
+            if (score > best_score)
+            {
+                best_score = score;
+                best_node = entry.node;
+                best_pos = entry.first_pos;
+            }
+            
+        }
+        
+        
         cycle.insert(cycle.begin() + best_pos, best_node);
         used[best_node] = true;
     }
 
     return cycle;
 }
+
+
+vector<int> greedy_cycle_regret(int start_node, int k, const vector<vector<int>>& d, const vector<Node>& nodes, double w1, double w2) {
+    struct RegretRankingEntry {
+            int node;
+            int first_pos;
+            long long first_val;
+            int second_pos;
+            long long second_val;
+        };
+
+    int n = d.size();
+    vector<char> used(n, false);
+    vector<int> cycle;
+    cycle.reserve(k);
+
+    cycle.push_back(start_node);
+    used[start_node] = true;
+
+    int best_second = -1;
+    long long best_delta = LLONG_MAX;
+
+    // add second node to form first edge
+    for (int cand = 0; cand < n; cand++)
+    {
+        if (used[cand])
+            continue;
+        long long delta = (long long)d[start_node][cand] + nodes[cand].cost;
+        if (delta < best_delta)
+        {
+            best_delta = delta;
+            best_second = cand;
+        }
+    }
+
+    cycle.push_back(best_second);
+    used[best_second] = true;
+
+
+    while ((int)cycle.size() < k)
+    {
+        
+        vector<RegretRankingEntry> ranking;
+
+        for (int i = 0; i < n; i++)
+        {
+            if (used[i]) continue;
+            
+            int best_first_pos = 0;
+            long long best_first_val = LLONG_MAX;
+            int best_second_pos = 0;
+            long long best_second_val = LLONG_MAX;
+
+            int c_size = (int)cycle.size();
+            for (int pos = 1; pos <= c_size; pos++) {
+                long long val = (long long)d[cycle[pos - 1]][i] + d[cycle[pos % c_size]][i] + nodes[i].cost;
+                if (c_size > 2)
+                {
+                    val -= d[cycle[pos - 1]][cycle[pos % c_size]];
+                }
+
+                if (val < best_first_val)
+                {
+                    best_second_val = best_first_val;
+                    best_second_pos = best_first_pos;
+                    best_first_val = val;
+                    best_first_pos = pos;
+                } else if (val < best_second_val)
+                {
+                    best_second_val = val;
+                    best_second_pos = pos;
+                }
+            }
+
+            ranking.push_back({i, best_first_pos, best_first_val, best_second_pos, best_second_val});
+        }
+
+        double best_score = -__DBL_MAX__;
+        int best_node = 0;
+        int best_pos = 0;
+
+        for(RegretRankingEntry entry: ranking) {
+            double score = w1 * (double)(entry.second_val - entry.first_val) - w2 * (double)entry.first_val;
+            
+            if (score > best_score)
+            {
+                best_score = score;
+                best_node = entry.node;
+                best_pos = entry.first_pos;
+            }
+            
+        }
+        
+        
+        cycle.insert(cycle.begin() + best_pos, best_node);
+        used[best_node] = true;
+    }
+
+    return cycle;
+}
+
 
 
 void export_tour_svg(const string& filename, const vector<int>& tour, const vector<Node>& nodes) {
@@ -394,7 +604,7 @@ void export_tour_txt(const string& filename, const vector<int>& tour) {
         for (size_t i = 0; i < tour.size(); ++i) {
             outfile << tour[i];
             if (i < tour.size() - 1) {
-                outfile << ",";
+                outfile << "\n";
             }
         }
         outfile << "\n";
@@ -505,6 +715,93 @@ int main(int argc, char** argv) {
     print_stats("Greedy Cycle", greedy_cycle_objectives);
     export_tour_svg("best_greedy_cycle_tour.svg", best_greedy_tour, nodes);
     export_tour_txt("best_greedy_cycle_tour.txt", best_greedy_tour);
+
+
+    // 5. NN Any Position Regret Solutions
+    long long best_nn_any_regret_obj = LLONG_MAX;
+    vector<int> best_nn_any_regret_tour;
+    vector<long long> nn_anypos_regret_objectives;
+
+    // Generate N_SOL NN any-position _regret and keep the best
+    for(int t=0;t<N_SOL;t++){
+        int start = t % n;
+        auto tour = nn_anypos_regret(start, k, d, nodes, 1.0, 0.0);
+        long long obj = tour_objective(tour, d, nodes);
+        nn_anypos_regret_objectives.push_back(obj);
+
+        if(obj < best_nn_any_regret_obj){
+            best_nn_any_regret_obj = obj;
+            best_nn_any_regret_tour = tour;
+        }
+    }
+    print_stats("Nearest Neighbor (Any Position Regret)", nn_anypos_regret_objectives);
+    export_tour_svg("best_anypos_nn_regret_tour.svg", best_nn_any_regret_tour, nodes);
+    export_tour_txt("best_anypos_nn_regret_tour.txt", best_nn_any_regret_tour);
+
+
+    // 6. Greedy Cycle Regret Solutions
+    long long best_greedy_regret_obj = LLONG_MAX;
+    vector<int> best_greedy_regret_tour;
+    vector<long long> greedy_cycle_regret_objectives;
+
+    // Generate N_SOL Greedy cycle regret solutions and keep the best
+    for(int t=0;t<N_SOL;t++){
+        int start = t % n;
+        auto tour = greedy_cycle_regret(start, k, d, nodes, 1.0, 0.0);
+        long long obj = tour_objective(tour, d, nodes);
+        greedy_cycle_regret_objectives.push_back(obj);
+
+        if(obj < best_greedy_regret_obj){
+            best_greedy_regret_obj = obj;
+            best_greedy_regret_tour = tour;
+        }
+    }
+    print_stats("Greedy Cycle Regret", greedy_cycle_regret_objectives);
+    export_tour_svg("best_greedy_cycle_regret_tour.svg", best_greedy_regret_tour, nodes);
+    export_tour_txt("best_greedy_cycle_regret_tour.txt", best_greedy_regret_tour);
+
+     // 7. NN Any Position Regret Weighted Solutions
+    long long best_nn_any_regret_weighted_obj = LLONG_MAX;
+    vector<int> best_nn_any_regret_weighted_tour;
+    vector<long long> nn_anypos_regret_weighted_objectives;
+
+    // Generate N_SOL NN any-position _regret _weighted and keep the best
+    for(int t=0;t<N_SOL;t++){
+        int start = t % n;
+        auto tour = nn_anypos_regret(start, k, d, nodes, 0.5, 0.5);
+        long long obj = tour_objective(tour, d, nodes);
+        nn_anypos_regret_weighted_objectives.push_back(obj);
+
+        if(obj < best_nn_any_regret_weighted_obj){
+            best_nn_any_regret_weighted_obj = obj;
+            best_nn_any_regret_weighted_tour = tour;
+        }
+    }
+    print_stats("Nearest Neighbor (Any Position Regret Weighted)", nn_anypos_regret_weighted_objectives);
+    export_tour_svg("best_anypos_nn_regret_weighted_tour.svg", best_nn_any_regret_weighted_tour, nodes);
+    export_tour_txt("best_anypos_nn_regret_weighted_tour.txt", best_nn_any_regret_weighted_tour);
+
+
+    // 8. Greedy Cycle Regret Weighted Solutions
+    long long best_greedy_regret_weighted_obj = LLONG_MAX;
+    vector<int> best_greedy_regret_weighted_tour;
+    vector<long long> greedy_cycle_regret_weighted_objectives;
+
+    // Generate N_SOL Greedy cycle regret _weighted solutions and keep the best
+    for(int t=0;t<N_SOL;t++){
+        int start = t % n;
+        auto tour = greedy_cycle_regret(start, k, d, nodes, 0.5, 0.5);
+        long long obj = tour_objective(tour, d, nodes);
+        greedy_cycle_regret_weighted_objectives.push_back(obj);
+
+        if(obj < best_greedy_regret_weighted_obj){
+            best_greedy_regret_weighted_obj = obj;
+            best_greedy_regret_weighted_tour = tour;
+        }
+    }
+    print_stats("Greedy Cycle Regret Weighted", greedy_cycle_regret_weighted_objectives);
+    export_tour_svg("best_greedy_cycle_regret_tour.svg", best_greedy_regret_weighted_tour, nodes);
+    export_tour_txt("best_greedy_cycle_regret_tour.txt", best_greedy_regret_weighted_tour);
 
     return 0;
 }
